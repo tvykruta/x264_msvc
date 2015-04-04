@@ -1,0 +1,143 @@
+diff --git a/common/deblock.c b/common/deblock.c
+index 47b604f..1810dac 100644
+--- a/common/deblock.c
++++ b/common/deblock.c
+@@ -607,7 +607,9 @@ void x264_macroblock_deblock( x264_t *h )
+     int qp = h->mb.i_qp;
+     int qpc = h->mb.i_chroma_qp;
+     if( (h->mb.i_partition == D_16x16 && !h->mb.i_cbp_luma && !intra_cur) || qp <= qp_thresh )
++    {
+         return;
++    }
+ 
+     uint8_t (*bs)[8][4] = h->mb.cache.deblock_strength;
+     if( intra_cur )
+diff --git a/common/frame.c b/common/frame.c
+index 4b4a69f..dc0cfe6 100644
+--- a/common/frame.c
++++ b/common/frame.c
+@@ -550,7 +550,9 @@ void x264_frame_expand_border( x264_t *h, x264_frame_t *frame, int mb_y )
+         int padv = PADV >> v_shift;
+         // buffer: 2 chroma, 3 luma (rounded to 4) because deblocking goes beyond the top of the mb
+         if( b_end && !b_start )
++        {
+             height += 4 >> (v_shift + SLICE_MBAFF);
++        }
+         pixel *pix;
+         int starty = 16*mb_y - 4*!b_start;
+         if( SLICE_MBAFF )
+diff --git a/common/opencl.c b/common/opencl.c
+index 9e5e794..d0298eb 100644
+--- a/common/opencl.c
++++ b/common/opencl.c
+@@ -124,7 +124,9 @@ static cl_program x264_opencl_cache_load( x264_t *h, const char *dev_name, const
+     /* try to load cached program binary */
+     FILE *fp = x264_fopen( h->param.psz_clbin_file, "rb" );
+     if( !fp )
++    {
+         return NULL;
++    }
+ 
+     x264_opencl_function_t *ocl = h->opencl.ocl;
+     cl_program program = NULL;
+diff --git a/common/threadpool.c b/common/threadpool.c
+index 6c44cc8..9b53979 100644
+--- a/common/threadpool.c
++++ b/common/threadpool.c
+@@ -76,7 +76,9 @@ int x264_threadpool_init( x264_threadpool_t **p_pool, int threads,
+                           void (*init_func)(void *), void *init_arg )
+ {
+     if( threads <= 0 )
++    {
+         return -1;
++    }
+ 
+     x264_threadpool_t *pool;
+     CHECKED_MALLOCZERO( pool, sizeof(x264_threadpool_t) );
+diff --git a/common/win32thread.c b/common/win32thread.c
+index 7ad70ed..7c18de3 100644
+--- a/common/win32thread.c
++++ b/common/win32thread.c
+@@ -158,7 +158,9 @@ int x264_pthread_cond_destroy( x264_pthread_cond_t *cond )
+ {
+     /* native condition variables do not destroy */
+     if( thread_control.cond_init )
++    {
+         return 0;
++    }
+ 
+     /* non native condition variables */
+     x264_win32_cond_t *win32_cond = cond->ptr;
+@@ -231,7 +233,9 @@ int x264_pthread_cond_signal( x264_pthread_cond_t *cond )
+ int x264_pthread_cond_wait( x264_pthread_cond_t *cond, x264_pthread_mutex_t *mutex )
+ {
+     if( thread_control.cond_wait )
++    {
+         return !thread_control.cond_wait( cond, mutex, INFINITE );
++    }
+ 
+     /* non native condition variables */
+     x264_win32_cond_t *win32_cond = cond->ptr;
+diff --git a/encoder/encoder.c b/encoder/encoder.c
+index 815c6f8..771d55d 100644
+--- a/encoder/encoder.c
++++ b/encoder/encoder.c
+@@ -1866,7 +1866,9 @@ static int x264_check_encapsulated_buffer( x264_t *h, x264_t *h0, int start,
+         if( !buf )
+             return -1;
+         if( previous_nal_size )
++        {
+             memcpy( buf, h0->nal_buffer, previous_nal_size );
++        }
+ 
+         intptr_t delta = buf - h0->nal_buffer;
+         for( int i = 0; i < start; i++ )
+@@ -1903,7 +1905,9 @@ static int x264_encoder_encapsulate_nals( x264_t *h, int start )
+     for( int i = start; i < h->out.i_nal; i++ )
+         necessary_size += h->out.nal[i].i_padding;
+     if( x264_check_encapsulated_buffer( h, h0, start, previous_nal_size, necessary_size ) )
++    {
+         return -1;
++    }
+ 
+     uint8_t *nal_buffer = h0->nal_buffer + previous_nal_size;
+ 
+@@ -2711,7 +2715,9 @@ static int x264_slice_write( x264_t *h )
+         {
+             /* Count the skip run, just in case. */
+             if( !h->param.b_cabac )
++            {
+                 total_bits += bs_size_ue_big( i_skip );
++            }
+             /* Check for escape bytes. */
+             uint8_t *end = h->param.b_cabac ? h->cabac.p : h->out.bs.p;
+             for( ; last_emu_check < end - 2; last_emu_check++ )
+diff --git a/encoder/lookahead.c b/encoder/lookahead.c
+index a6e861b..3aa976f 100644
+--- a/encoder/lookahead.c
++++ b/encoder/lookahead.c
+@@ -142,7 +142,9 @@ int x264_lookahead_init( x264_t *h, int i_slicetype_length )
+         goto fail;
+ 
+     if( !h->param.i_sync_lookahead )
++    {
+         return 0;
++    }
+ 
+     x264_t *look_h = h->thread[h->param.i_threads];
+     *look_h = *h;
+diff --git a/encoder/rdo.c b/encoder/rdo.c
+index 8008920..a7809a9 100644
+--- a/encoder/rdo.c
++++ b/encoder/rdo.c
+@@ -711,7 +711,9 @@ int quant_trellis_cabac( x264_t *h, dctcoef *dct,
+     else if( num_coefs == 8 && dc )
+         return h->quantf.trellis_cabac_chroma_422_dc( TRELLIS_ARGS );
+     else if( dc )
+-        return h->quantf.trellis_cabac_dc( TRELLIS_ARGS, num_coefs-1 );
++    {
++        return h->quantf.trellis_cabac_dc( TRELLIS_ARGS, num_coefs - 1 );
++    }
+ #endif
+ 
+     // (# of coefs) * (# of ctx) * (# of levels tried) = 1024
